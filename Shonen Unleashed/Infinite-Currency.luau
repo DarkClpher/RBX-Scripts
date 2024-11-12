@@ -2,6 +2,7 @@
     @author Jorsan
     @date 11/10/2024
     @description In order for the infinite cash/tokens script to work you must complete an achievement e.g. the tutorial for cash.
+    @status Patched
 --]]
 
 _G.IsEnabled = true
