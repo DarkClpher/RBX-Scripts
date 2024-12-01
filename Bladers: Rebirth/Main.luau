@@ -739,7 +739,7 @@ local function LoadControllers()
         end
     end
 
-    Client.Idled:connect(function()
+    Client.Idled:Connect(function()
         VirtualUser:ClickButton2(Vector2.new())
     end)
 
