@@ -21,7 +21,7 @@ local Maid = loadstring(game:HttpGet("https://raw.githubusercontent.com/Quenty/N
 local Signal = loadstring(game:HttpGet("https://raw.githubusercontent.com/Sleitnick/RbxUtil/refs/heads/main/modules/signal/init.luau"))()
 
 -- Game Modules
-local NetworkModule = require(ReplicatedStorage.Modules.Network)
+local NetworkFunctions = {}
 
 -- Constants
 local GENERAL_POLL_DELAY = 0.1
@@ -104,7 +104,7 @@ do
         -- Attack logic
         if os.clock() - self._LastAttack >= GENERAL_POLL_DELAY then
             self._LastAttack = os.clock()
-            NetworkModule:fire("Attack", self._CurrentTarget, 0.9, self._CurrentTarget.PrimaryPart.Position)
+            NetworkFunctions.fire("Attack", self._CurrentTarget, 0.9, self._CurrentTarget.PrimaryPart.Position)
         end
         
         -- Teleport logic
@@ -193,7 +193,7 @@ do
         local ChoiceId = FirstReplyId or FirstResponseId
         
         task.wait(DelayTime)
-        NetworkModule:fire("DialogueChoice", ChoiceId)
+        NetworkFunctions.fire("DialogueChoice", ChoiceId)
     end
 
     function BaseNPCBattleStrategy:Update()
@@ -203,7 +203,7 @@ do
         
         if os.clock() - self._LastAttack >= GENERAL_POLL_DELAY then
             self._LastAttack = os.clock()
-            NetworkModule:fire("Attack", self._NPCBeyblade, 0.9, self._NPCBeyblade.HumanoidRootPart.Position)
+            NetworkFunctions.fire("Attack", self._NPCBeyblade, 0.9, self._NPCBeyblade.HumanoidRootPart.Position)
         end
 
         ClientBeyblade.HumanoidRootPart.CFrame = self._NPCBeyblade.HumanoidRootPart.CFrame * CFrame.new(0, -5, 0)
@@ -326,7 +326,7 @@ do
         local ClientBeyblade: Model = self:GetClientBeyblade()
         if not ClientBeyblade then
             repeat
-                NetworkModule:fire("Launch")
+                NetworkFunctions.fire("Launch")
                 task.wait(GENERAL_POLL_DELAY)
             until self:GetClientBeyblade()
         end
@@ -340,7 +340,7 @@ do
         local ClientBeyblade: Model = self:GetClientBeyblade()
         if ClientBeyblade then
             repeat
-                NetworkModule:fire("Launch")
+                NetworkFunctions.fire("Launch")
                 task.wait(GENERAL_POLL_DELAY)
             until not self:GetClientBeyblade()
         end
@@ -724,13 +724,23 @@ do
     end
 end
 
--- Load Controllers
 local function LoadControllers()
-    -- Bypasses before we start anything:
+    -- Grab network functions
+    local NetworkModule = ReplicatedStorage.Modules.Network
+    for _, Function in getgc() do
+        if type(Function) == "function" and islclosure(Function) then
+            if getfenv(Function).script == NetworkModule and getinfo(Function).name == "fire" then
+                NetworkFunctions.fire = function(...)
+                   return Function(newproxy(true), ...) 
+                end
+                break
+            end
+        end 
+    end
 
     -- Reverse Remote name randomisations
     -- I will only be utilizing this for remote listeners
-    for _, Upvalue in getupvalues(NetworkModule.fire) do
+    for _, Upvalue in getupvalues(NetworkFunctions.fire) do
         if type(Upvalue) == "table" and Upvalue["Attack"] then            
             for RemoteName, RemoteObject in Upvalue do
                 RemoteObject.Name = RemoteName
@@ -739,10 +749,12 @@ local function LoadControllers()
         end
     end
 
+    -- Anti-idle/afk
     Client.Idled:Connect(function()
         VirtualUser:ClickButton2(Vector2.new())
     end)
 
+    -- Initialize controllers
     UIController:Init()
     AutofarmController:Init()
 
