@@ -104,7 +104,7 @@ do
         -- Attack logic
         if os.clock() - self._LastAttack >= GENERAL_POLL_DELAY then
             self._LastAttack = os.clock()
-            NetworkModule:fire("Attack", self._CurrentTarget, 0.9, self._CurrentTarget.PrimaryPart.Position)
+            NetworkModule:fire("Attack", self._CurrentTarget, 0.9, ClientBeyblade.HumanoidRootPart.Position)
         end
         
         -- Teleport logic
