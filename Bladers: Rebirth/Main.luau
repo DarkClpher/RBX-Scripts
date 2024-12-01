@@ -104,11 +104,11 @@ do
         -- Attack logic
         if os.clock() - self._LastAttack >= GENERAL_POLL_DELAY then
             self._LastAttack = os.clock()
-            NetworkModule:fire("Attack", self._CurrentTarget, 0.9, ClientBeyblade.HumanoidRootPart.Position)
+            NetworkModule:fire("Attack", self._CurrentTarget, 0.9, self._CurrentTarget.PrimaryPart.Position)
         end
         
         -- Teleport logic
-        ClientBeyblade.HumanoidRootPart.CFrame = self._CurrentTarget.PrimaryPart.CFrame * CFrame.new(0, -6, 0)
+        ClientBeyblade.HumanoidRootPart.CFrame = self._CurrentTarget.PrimaryPart.CFrame * CFrame.new(0, -2, 0)
     end
     
     function RockFarmStrategy:Start()
