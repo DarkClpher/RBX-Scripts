@@ -108,7 +108,7 @@ do
         end
         
         -- Teleport logic
-        ClientBeyblade.HumanoidRootPart.CFrame = self._CurrentTarget.PrimaryPart.CFrame * CFrame.new(0, -2, 0)
+        ClientBeyblade.HumanoidRootPart.CFrame = self._CurrentTarget.PrimaryPart.CFrame * CFrame.new(0, 1, 0)
     end
     
     function RockFarmStrategy:Start()
