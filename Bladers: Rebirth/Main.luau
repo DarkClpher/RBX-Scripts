@@ -92,6 +92,7 @@ do
         for _, Rock: Model in TrainingFolder:GetChildren() do
             if Rock.PrimaryPart and Rock.PrimaryPart.Position.Y > 1000 then continue end
             if Rock.Name ~= TargetRockName then continue end
+            if Rock:GetAttribute("Health") <= 0 then continue end
             self._CurrentTarget = Rock
             break
         end
