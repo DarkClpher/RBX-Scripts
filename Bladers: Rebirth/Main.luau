@@ -20,9 +20,6 @@ local Rayfield = loadstring(game:HttpGet("https://raw.githubusercontent.com/Siri
 local Maid = loadstring(game:HttpGet("https://raw.githubusercontent.com/Quenty/NevermoreEngine/refs/heads/main/src/maid/src/Shared/Maid.lua"))()
 local Signal = loadstring(game:HttpGet("https://raw.githubusercontent.com/Sleitnick/RbxUtil/refs/heads/main/modules/signal/init.luau"))()
 
--- Game Modules
-local NetworkFunctions = {}
-
 -- Constants
 local GENERAL_POLL_DELAY = 0.1
 
@@ -45,6 +42,9 @@ local EventsFolder = ReplicatedStorage.Events
 local BeybladesFolder = workspace.Beyblades
 local TrainingFolder = workspace.Training
 local NPCsFolder = workspace.NPCs
+local RemotesFolder = ReplicatedStorage.Events
+
+local RNG = Random.new()
 
 -- Class Definitions
 do
@@ -104,7 +104,9 @@ do
         -- Attack logic
         if os.clock() - self._LastAttack >= GENERAL_POLL_DELAY then
             self._LastAttack = os.clock()
-            NetworkFunctions.fire("Attack", self._CurrentTarget, 0.9, self._CurrentTarget.PrimaryPart.Position)
+
+            local RandomValue = RNG:NextNumber(0.85, 0.9)
+            AutofarmController:FireServer("Attack", ClientBeyblade, self._CurrentTarget, RandomValue, self._CurrentTarget.PrimaryPart.Position)
         end
         
         -- Teleport logic
@@ -193,7 +195,7 @@ do
         local ChoiceId = FirstReplyId or FirstResponseId
         
         task.wait(DelayTime)
-        NetworkFunctions.fire("DialogueChoice", ChoiceId)
+        AutofarmController:FireServer("DialogueChoice", ChoiceId)
     end
 
     function BaseNPCBattleStrategy:Update()
@@ -203,7 +205,9 @@ do
         
         if os.clock() - self._LastAttack >= GENERAL_POLL_DELAY then
             self._LastAttack = os.clock()
-            NetworkFunctions.fire("Attack", self._NPCBeyblade, 0.9, self._NPCBeyblade.HumanoidRootPart.Position)
+
+            local RandomValue = RNG:NextNumber(0.85, 0.9)
+            AutofarmController:FireServer("Attack", ClientBeyblade, self._NPCBeyblade, RandomValue, self._NPCBeyblade.HumanoidRootPart.Position)
         end
 
         ClientBeyblade.HumanoidRootPart.CFrame = self._NPCBeyblade.HumanoidRootPart.CFrame * CFrame.new(0, -5, 0)
@@ -318,6 +322,10 @@ do
         BossFarm = BossFarmStrategy
     }
 
+    function AutofarmController:FireServer(RemoteName, ...)
+        RemotesFolder[RemoteName]:FireServer(...)
+    end
+
     function AutofarmController:GetClientBeyblade() : Model
         return BeybladesFolder:FindFirstChild(Client.Name)
     end
@@ -326,7 +334,7 @@ do
         local ClientBeyblade: Model = self:GetClientBeyblade()
         if not ClientBeyblade then
             repeat
-                NetworkFunctions.fire("Launch")
+                AutofarmController:FireServer("Launch")
                 task.wait(GENERAL_POLL_DELAY)
             until self:GetClientBeyblade()
         end
@@ -340,7 +348,7 @@ do
         local ClientBeyblade: Model = self:GetClientBeyblade()
         if ClientBeyblade then
             repeat
-                NetworkFunctions.fire("Launch")
+                AutofarmController:FireServer("Launch")
                 task.wait(GENERAL_POLL_DELAY)
             until not self:GetClientBeyblade()
         end
@@ -727,20 +735,19 @@ end
 local function LoadControllers()
     -- Grab network functions
     local NetworkModule = ReplicatedStorage.Modules.Network
+    local NetworkFireMethod = nil
+
     for _, Function in getgc() do
         if type(Function) == "function" and islclosure(Function) then
             if getfenv(Function).script == NetworkModule and getinfo(Function).name == "fire" then
-                NetworkFunctions.fire = function(...)
-                   return Function(newproxy(true), ...) 
-                end
+                NetworkFireMethod = Function
                 break
             end
         end 
     end
 
     -- Reverse Remote name randomisations
-    -- I will only be utilizing this for remote listeners
-    for _, Upvalue in getupvalues(NetworkFunctions.fire) do
+    for _, Upvalue in getupvalues(NetworkFireMethod) do
         if type(Upvalue) == "table" and Upvalue["Attack"] then            
             for RemoteName, RemoteObject in Upvalue do
                 RemoteObject.Name = RemoteName
