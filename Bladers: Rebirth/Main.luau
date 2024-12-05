@@ -219,7 +219,12 @@ do
         self._Maid:GiveTask(task.spawn(function()
             while true do
                 task.wait(1)
-                if not self._CurrentNPC and not self._NPCBeyblade then
+                if self._CurrentNPC then
+                    local CooldownEndTime = self._CurrentNPC:GetAttribute("CooldownEnd")                    
+                    if CooldownEndTime and os.time() < CooldownEndTime then
+                        self:BeginFarming()
+                    end
+                else
                     self:BeginFarming()
                 end
             end
@@ -238,6 +243,7 @@ do
 
         self._Maid:GiveTask(BeybladesFolder.ChildRemoved:Connect(function(Beyblade)
             if Beyblade == self._NPCBeyblade then
+                self._NPCBeyblade = nil
                 task.wait(1)
                 self:BeginFarming()
             end
@@ -257,7 +263,7 @@ do
         local Character = Client.Character
         if not Character then return end
         
-        task.wait(0.5)
+        task.wait(4)
         Character.HumanoidRootPart.CFrame = self._CurrentNPC.HumanoidRootPart.CFrame
         task.wait(0.5)
         fireproximityprompt(self._CurrentNPC.HumanoidRootPart.Dialogue)
