@@ -204,13 +204,15 @@ do
         
         if not ClientBeyblade or not self._NPCBeyblade then return end
         
+        -- Attack logic
         if os.clock() - self._LastAttack >= GENERAL_POLL_DELAY then
             self._LastAttack = os.clock()
             AutofarmController:Attack(self._NPCBeyblade)
             AutofarmController:FireSkills(self._NPCBeyblade)
         end
 
-        ClientBeyblade.HumanoidRootPart.CFrame = self._NPCBeyblade.HumanoidRootPart.CFrame * CFrame.new(0, -5, 0)
+        -- Teleport logic
+        ClientBeyblade.HumanoidRootPart.CFrame = self._NPCBeyblade.HumanoidRootPart.CFrame * CFrame.new(0, 1, 0)
     end
 
     function BaseNPCBattleStrategy:Start()
