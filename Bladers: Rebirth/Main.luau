@@ -25,6 +25,7 @@ local GENERAL_POLL_DELAY = 0.1
 
 -- Controllers
 local AutofarmController = {}
+local MiscController = {}
 local UIController = {}
 
 -- Classes
@@ -482,6 +483,8 @@ do
 
     UIController.OnTrainerLevelChanged = Signal.new()
 
+    UIController.OnStaffAutoKickChanged = Signal.new()
+
     -- State management
     UIController.State = {
         IsAutofarmEnabled = false,
@@ -559,6 +562,10 @@ do
         return SelectedFarm
     end
 
+    function UIController:CanStaffAutoKick()
+        return Rayfield.Flags.CanStaffAutoKick.CurrentValue
+    end
+
     -- State setters
     function UIController:SetAutofarmEnabled(IsEnabled: boolean)
         self.State.IsAutofarmEnabled = IsEnabled
@@ -601,7 +608,23 @@ do
         })
 
         UIController:_CreateFarmTab(Window)
+        UIController:_CreateMiscTab(Window)
         Rayfield:LoadConfiguration()
+    end
+
+    function UIController:_CreateMiscTab(Window)
+        local Tab = Window:CreateTab("Misc", 4483362458)
+        
+        -- Staff Management Section
+        Tab:CreateSection("Staff Manangement")
+        Tab:CreateToggle({
+            Name = "Staff Auto-Kick",
+            CurrentValue = false,
+            Flag = "CanStaffAutoKick",
+            Callback = function(State)
+                self.OnStaffAutoKickChanged:Fire(State)
+            end,
+        })
     end
     
     function UIController:_CreateFarmTab(Window)
@@ -775,6 +798,61 @@ do
             end,
         })
     end
+
+    function UIController:Notify(MessageData)
+        Rayfield:Notify({
+            Title = MessageData.Title,
+            Content = MessageData.Content,
+            Duration = MessageData.Duration,
+            Image = 4483362458,
+         })
+    end
+end
+
+do
+    local GAME_GROUP_ID = 33103002
+    local MINIMUM_GROUP_FLAG_RANK = 95 -- Minimum: Contributor rank
+
+    function MiscController:OnPlayerAdded(Player)
+        if Player:GetRankInGroup(GAME_GROUP_ID) < MINIMUM_GROUP_FLAG_RANK then return end
+
+        local StaffName = Player.Name
+        local StaffRole = Player:GetRoleInGroup(GAME_GROUP_ID)
+
+        local MessageContent = "Staff Name: " .. StaffName  .. ", Staff Role/Rank: " .. StaffRole
+        UIController:Notify({
+            Title = "[WARNING] Staff In Game!",
+            Content = MessageContent
+        })
+
+        if UIController:CanStaffAutoKick() then
+            Client:Kick("Kicked from game due to staff being in the same server! " .. MessageContent)
+        end
+    end
+
+    function MiscController:Init()
+        UIController.OnStaffAutoKickChanged:Connect(function(IsEnabled)
+            if not IsEnabled then return end
+            for _, Player in Players:GetPlayers() do
+                task.spawn(function()
+                    self:OnPlayerAdded(Player)
+                end)
+            end    
+        end)
+
+        Players.PlayerAdded:Connect(function(Player)
+            self:OnPlayerAdded(Player)
+        end)
+
+        for _, Player in Players:GetPlayers() do
+            task.spawn(function()
+                self:OnPlayerAdded(Player)
+            end)
+        end 
+    end
+
+    function MiscController:Start()
+    end
 end
 
 local function LoadControllers()
@@ -820,9 +898,11 @@ local function LoadControllers()
     -- Initialize controllers
     UIController:Init()
     AutofarmController:Init()
+    MiscController:Init()
 
     UIController:Start()
     AutofarmController:Start()
+    MiscController:Start()
 end
 
 LoadControllers()
