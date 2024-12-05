@@ -235,7 +235,6 @@ do
 
         self._Maid:GiveTask(BeybladesFolder.ChildRemoved:Connect(function(Beyblade)
             if Beyblade == self._NPCBeyblade then
-                self._NPCBeyblade = nil
                 task.wait(1)
                 self:BeginFarming()
             end
@@ -248,13 +247,16 @@ do
         AutofarmController:UnlaunchBeyblade()
                 
         self._CurrentNPC = self:FindAvailableNPC()
+        self._NPCBeyblade = nil
+
         if not self._CurrentNPC then return end
         
         local Character = Client.Character
         if not Character then return end
         
+        task.wait(0.5)
         Character.HumanoidRootPart.CFrame = self._CurrentNPC.HumanoidRootPart.CFrame
-        task.wait(1)
+        task.wait(0.5)
         fireproximityprompt(self._CurrentNPC.HumanoidRootPart.Dialogue)
     end
 
