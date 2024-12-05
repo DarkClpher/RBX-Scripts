@@ -105,9 +105,8 @@ do
         -- Attack logic
         if os.clock() - self._LastAttack >= GENERAL_POLL_DELAY then
             self._LastAttack = os.clock()
-
-            local RandomValue = RNG:NextNumber(0.85, 0.9)
-            AutofarmController:FireServer("Attack", ClientBeyblade, self._CurrentTarget, RandomValue, self._CurrentTarget.PrimaryPart.Position)
+            AutofarmController:Attack(self._CurrentTarget)
+            AutofarmController:FireSkills(self._CurrentTarget)
         end
         
         -- Teleport logic
@@ -206,9 +205,8 @@ do
         
         if os.clock() - self._LastAttack >= GENERAL_POLL_DELAY then
             self._LastAttack = os.clock()
-
-            local RandomValue = RNG:NextNumber(0.85, 0.9)
-            AutofarmController:FireServer("Attack", ClientBeyblade, self._NPCBeyblade, RandomValue, self._NPCBeyblade.HumanoidRootPart.Position)
+            AutofarmController:Attack(self._NPCBeyblade)
+            AutofarmController:FireSkills(self._NPCBeyblade)
         end
 
         ClientBeyblade.HumanoidRootPart.CFrame = self._NPCBeyblade.HumanoidRootPart.CFrame * CFrame.new(0, -5, 0)
@@ -322,9 +320,53 @@ do
         TrainerFarm = TrainerFarmStrategy,
         BossFarm = BossFarmStrategy
     }
+    
+    local StatsModule = require(ReplicatedStorage.Modules.Stats)
 
     function AutofarmController:FireServer(RemoteName, ...)
         RemotesFolder[RemoteName]:FireServer(...)
+    end
+
+    function AutofarmController:Attack(Target: Model)
+        local AttackRemote = RemotesFolder:FindFirstChild("Attack")
+        if not AttackRemote then return end
+        
+        local ClientBeyblade = self:GetClientBeyblade()
+        if not ClientBeyblade then return end
+
+        local TargetPosition = Target.PrimaryPart.Position
+        local RandomValue = RNG:NextNumber(0.85, 0.9)
+
+        AttackRemote:FireServer("Attack", ClientBeyblade, Target, RandomValue, TargetPosition)
+    end
+
+    function AutofarmController:FireSkills(Target: Model)
+        local EquippedBeyblade = nil
+        for _, Item in StatsModule.Inventory.Items do
+            if Item.Name == "Beyblade" and Item.Equipped then
+                EquippedBeyblade = Item
+                break
+            end
+        end
+
+        if not EquippedBeyblade then return end
+
+        local TargetPrimaryPart = Target.PrimaryPart
+        local TargetPosition = TargetPrimaryPart.Position
+
+        -- Better method of firing skills without having to
+        --  fire for every possible keybind regardless if it's equipped/unequipped
+        for SkillIndex, _ in pairs(EquippedBeyblade.Skills) do
+            -- RunSkill, returns debounce data which we could utilise
+            -- FinishSkill, for 2nd arg I could've put any instance, since
+            --  it doesn't affect the skill's performance
+            RemotesFolder.SetPoint:FireServer(TargetPosition)
+            task.spawn(function()
+                -- May yield, so process in a thread
+                RemotesFolder.RunSkill:InvokeServer("Skill" .. SkillIndex)
+            end)
+            RemotesFolder.FinishSkill:FireServer(TargetPosition, TargetPrimaryPart)
+        end
     end
 
     function AutofarmController:GetClientBeyblade() : Model
@@ -734,6 +776,17 @@ do
 end
 
 local function LoadControllers()
+    -- Functions check
+    for _, FunctionName in pairs({
+        "getfenv",
+        "getgc",
+        "islclosure",
+        "fireproximityprompt",
+        "getupvalues"
+    }) do
+        assert(loadstring("return " .. FunctionName)(), "Function: " .. FunctionName .. " couldn't be found!")
+    end
+
     -- Grab network functions
     local NetworkModule = ReplicatedStorage.Modules.Network
     local NetworkFireMethod = nil
