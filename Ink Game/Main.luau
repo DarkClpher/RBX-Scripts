@@ -276,9 +276,7 @@ function UIManager.new()
 end
 
 function UIManager:_LoadLibrary()
-    local Repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/'
-    self._Library = loadstring(game:HttpGet(Repo .. 'Library.lua'))()
-    
+    self._Library = loadstring(game:HttpGet('https://raw.githubusercontent.com/DarkClpher/RBX-Scripts/refs/heads/main/UI-Libraries/LinoriaUI.luau'))()
     if not self._Library then
         error("Failed to load LinoriaLib")
     end
