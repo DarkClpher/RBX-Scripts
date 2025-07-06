@@ -164,16 +164,29 @@ end;
 function Library:MakeDraggable(Instance, Cutoff)
     Instance.Active = true;
     Instance.InputBegan:Connect(function(Input)
-        local IsMouseClick = Input.UserInputType == Enum.UserInputType.MouseButton1;
-        local IsTouchTap = Input.UserInputType == Enum.UserInputType.Touch;
-        
-        if IsMouseClick or IsTouchTap then
-            local InputPosition;
-            if IsMouseClick then
-                InputPosition = Vector2.new(Mouse.X, Mouse.Y);
-            else
-                InputPosition = Input.Position;
+        if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+            local ObjPos = Vector2.new(
+                Mouse.X - Instance.AbsolutePosition.X,
+                Mouse.Y - Instance.AbsolutePosition.Y
+            );
+
+            if ObjPos.Y > (Cutoff or 40) then
+                return;
             end;
+
+            while InputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) do
+                Instance.Position = UDim2.new(
+                    0,
+                    Mouse.X - ObjPos.X + (Instance.Size.X.Offset * Instance.AnchorPoint.X),
+                    0,
+                    Mouse.Y - ObjPos.Y + (Instance.Size.Y.Offset * Instance.AnchorPoint.Y)
+                );
+
+                RenderStepped:Wait();
+            end;
+            
+        elseif Input.UserInputType == Enum.UserInputType.Touch then
+            local InputPosition = Input.Position;
             
             local ObjPos = Vector2.new(
                 InputPosition.X - Instance.AbsolutePosition.X,
@@ -186,18 +199,8 @@ function Library:MakeDraggable(Instance, Cutoff)
             
             local Connection;
             Connection = InputService.InputChanged:Connect(function(ChangedInput)
-                local ShouldUpdate = false;
-                local CurrentPosition;
-                
-                if IsMouseClick and ChangedInput.UserInputType == Enum.UserInputType.MouseMovement then
-                    ShouldUpdate = InputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1);
-                    CurrentPosition = Vector2.new(Mouse.X, Mouse.Y);
-                elseif IsTouchTap and ChangedInput.UserInputType == Enum.UserInputType.Touch and ChangedInput == Input then
-                    ShouldUpdate = true;
-                    CurrentPosition = ChangedInput.Position;
-                end;
-                
-                if ShouldUpdate then
+                if ChangedInput.UserInputType == Enum.UserInputType.Touch and ChangedInput == Input then
+                    local CurrentPosition = ChangedInput.Position;
                     Instance.Position = UDim2.new(
                         0,
                         CurrentPosition.X - ObjPos.X + (Instance.Size.X.Offset * Instance.AnchorPoint.X),
@@ -209,15 +212,7 @@ function Library:MakeDraggable(Instance, Cutoff)
             
             local EndConnection;
             EndConnection = InputService.InputEnded:Connect(function(EndedInput)
-                local ShouldEnd = false;
-                
-                if IsMouseClick and EndedInput.UserInputType == Enum.UserInputType.MouseButton1 then
-                    ShouldEnd = true;
-                elseif IsTouchTap and EndedInput.UserInputType == Enum.UserInputType.Touch and EndedInput == Input then
-                    ShouldEnd = true;
-                end;
-                
-                if ShouldEnd then
+                if EndedInput.UserInputType == Enum.UserInputType.Touch and EndedInput == Input then
                     Connection:Disconnect();
                     EndConnection:Disconnect();
                 end;
