@@ -271,7 +271,6 @@ function Mingle:Start()
 
         local function OnChildAdded(Object)
             if Object.ClassName == "RemoteEvent" and Object.Name == "RemoteForQTE" then
-                warn("REMOTE FOR QTE WAS ADDED!")
                 OnRemoteForQTEAdded(Object)
             end
         end
