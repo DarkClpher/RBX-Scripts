@@ -107,8 +107,8 @@ function Dalgona:Start()
         for _, Value in ipairs(getreg()) do
             if typeof(Value) == "function" and islclosure(Value) then
                 if getfenv(Value).script == DalgonaClientModule then
-                    if getinfo(Value).nups == 54 then
-                        setupvalue(Value, 15, 9e9)
+                    if getinfo(Value).nups == 73 then
+                        setupvalue(Value, 31, 9e9)
                         break
                     end
                 end
@@ -155,7 +155,7 @@ function TugOfWar:Start()
     
     local PULL_RATE = 0.025
     local VALID_PULL_DATA = {
-        ["QTEGood"] = true
+        ["PerfectQTE"] = true
     }
 
     self._Maid:GiveTask(task.spawn(function()
@@ -231,6 +231,67 @@ end
 
 function GlassBridge:Destroy()
     warn("GlassBridge feature destroyed!")
+    self._Maid:Destroy()
+end
+
+-- @class Mingle
+local Mingle = {}
+Mingle.__index = Mingle
+
+function Mingle.new(UIManager)
+    local self = setmetatable({}, Mingle)
+
+    self._UIManager = UIManager
+    self._Maid = Maid.new()
+
+    return self
+end
+
+function Mingle:Start()
+    local Client = game:GetService("Players").LocalPlayer
+
+    local CharacterMaid = Maid.new()
+    self._Maid:GiveTask(CharacterMaid)
+
+    local function OnCharacterAdded(Character)
+        CharacterMaid:DoCleaning()
+
+        local function OnRemoteForQTEAdded(RemoteForQTE)
+            CharacterMaid:GiveTask(task.spawn(function()
+                while task.wait(0.5) do
+                    if not RemoteForQTE then break end
+                    if not RemoteForQTE.Parent then break end
+
+                    if self._UIManager:GetToggleValue("MinglePowerHoldAuto") then
+                        RemoteForQTE:FireServer()
+                    end
+                end
+            end))
+        end
+
+        local function OnChildAdded(Object)
+            if Object.ClassName == "RemoteEvent" and Object.Name == "RemoteForQTE" then
+                warn("REMOTE FOR QTE WAS ADDED!")
+                OnRemoteForQTEAdded(Object)
+            end
+        end
+
+        CharacterMaid:GiveTask(Character.ChildAdded:Connect(OnChildAdded))
+        for _, Object in ipairs(Character:GetChildren()) do
+            task.spawn(OnChildAdded, Object)
+        end
+    end
+
+    self._Maid:GiveTask(Client.CharacterAdded:Connect(OnCharacterAdded))
+    if Client.Character then
+        task.spawn(OnCharacterAdded, Client.Character)
+    end
+
+    warn("Mingle feature started!")
+end
+
+function Mingle:Destroy()
+    warn("Mingle feature destroyed!")
     self._Maid:Destroy()
 end
 
@@ -336,6 +397,13 @@ function UIManager:_SetupMainCheatsTab()
         Text = "Dalgona Auto Complete",
         Default = false,
         Tooltip = "Automatically completes the Dalgona cookie challenge"
+    })
+
+    -- Mingle power hold minigame/QTE Auto solver
+    GameCheats:AddToggle("MinglePowerHoldAuto", {
+        Text = "Mingle Auto Minigame Solver",
+        Default = false,
+        Tooltip = "Automatically completes the Mingle power hold minigame/QTE"
     })
     
     -- Add divider and status
@@ -527,7 +595,8 @@ local Features = {
     ["RedLightGreenLight"] = RedLightGreenLight,
     ["Dalgona"] = Dalgona,
     ["TugOfWar"] = TugOfWar,
-    ["GlassBridge"] = GlassBridge
+    ["GlassBridge"] = GlassBridge,
+    ["Mingle"] = Mingle
 }
 
 local function CleanupCurrentFeature()
