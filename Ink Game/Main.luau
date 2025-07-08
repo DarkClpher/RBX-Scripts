@@ -294,6 +294,113 @@ function Mingle:Destroy()
     self._Maid:Destroy()
 end
 
+-- @class HideAndSeek
+local HideAndSeek = {}
+HideAndSeek.__index = HideAndSeek
+
+function HideAndSeek.new(UIManager)
+    local self = setmetatable({}, HideAndSeek)
+
+    self._UIManager = UIManager
+    self._Maid = Maid.new()
+
+    -- Credits to Kiriot for the ESP lib
+    self._ESP = loadstring(game:HttpGet('https://kiriot22.com/releases/ESP.lua'))()
+    
+    return self
+end
+
+function HideAndSeek:Start()
+    local ROLES_DATA = {
+        IsHider = {Name = "Hider", Color = Color3.fromRGB(0, 255, 230), Flag = "Hiders"},
+        IsHunter = {Name = "Hunter", Color = Color3.fromRGB(251, 0, 0), Flag = "Hunters"}
+    }
+
+    local Client = game:GetService("Players").LocalPlayer
+    local BoxObjects = {}
+
+    local function OnPlayerAdded(Player)
+        if Player == Client then return end
+        
+        local PlayerMaid = Maid.new()
+        self._Maid:GiveTask(PlayerMaid)
+
+        local CharacterMaid = Maid.new()
+        PlayerMaid:GiveTask(CharacterMaid)
+        
+        local function OnCharacterAdded(Character)
+            CharacterMaid:DoCleaning()
+            local RootPart = Character:WaitForChild("HumanoidRootPart")
+            
+            local function OnRoleAdded(Role)
+                local RoleData = ROLES_DATA[Role]
+
+                table.insert(BoxObjects, self._ESP:Add(Character, {
+                    Name = "Role: " .. RoleData.Name .. " | " .. "Player Name: " .. Player.Name,
+                    Color = RoleData.Color,
+                    PrimaryPart = RootPart,
+                    IsEnabled = RoleData.Flag,
+                }))
+            end
+
+            for _, Attribute in ipairs({"IsHider", "IsHunter"}) do
+                CharacterMaid:GiveTask(Player:GetAttributeChangedSignal(Attribute):Connect(function()
+                    if Player:GetAttribute(Attribute) ~= true then return end
+                    OnRoleAdded(Attribute)
+                end))
+                if Player:GetAttribute(Attribute) == true then
+                    task.spawn(OnRoleAdded, Attribute)
+                end
+            end
+        end
+
+        PlayerMaid:GiveTask(Player.AncestryChanged:Connect(function(_, NewParent)
+            if NewParent then return end
+            PlayerMaid:Destroy()
+        end))
+
+        PlayerMaid:GiveTask(Player.CharacterAdded:Connect(OnCharacterAdded))
+        if Player.Character then
+            task.spawn(OnCharacterAdded, Player.Character)
+        end
+    end
+    
+    self._Maid:GiveTask(Players.PlayerAdded:Connect(OnPlayerAdded))
+    for _, Player in ipairs(Players:GetPlayers()) do
+        task.spawn(OnPlayerAdded, Player)
+    end
+    
+    self._UIManager.Toggles.HiderESP:OnChanged(function() 
+        self._ESP.Hiders = self._UIManager:GetToggleValue("HiderESP")
+    end)
+
+    self._UIManager.Toggles.HunterESP:OnChanged(function() 
+        self._ESP.Hunters = self._UIManager:GetToggleValue("HunterESP")
+    end)
+
+    self._Maid:GiveTask(function()
+        for _, Box in ipairs(BoxObjects) do
+            Box:Remove()
+        end
+        table.clear(BoxObjects)
+
+        self._ESP:Toggle(false)
+
+        self._UIManager.Toggles.HiderESP:OnChanged(function() end)
+        self._UIManager.Toggles.HunterESP:OnChanged(function() end)
+    end)
+   
+    self._ESP.Players = true
+    self._ESP:Toggle(true)
+
+    warn("HideAndSeek feature started!")
+end
+
+function HideAndSeek:Destroy()
+    warn("HideAndSeek feature destroyed!")
+    self._Maid:Destroy()
+end
+
 -- @class UIManager
 local UIManager = {}
 UIManager.__index = UIManager
@@ -303,6 +410,7 @@ function UIManager.new()
     
     self._Maid = Maid.new()
     self._Library = nil
+    self._ThemeManager = nil
     self._Window = nil
     self._Tabs = {}
     
@@ -319,24 +427,33 @@ function UIManager.new()
     
     self._Maid:GiveTask(function()
         self.IsDestroyed = true
+
+        -- Terminate the script
+        shared._InkGameScriptState.Cleanup()
+
+        -- Unload library
         self._Library:Unload()
         
         -- Clear references
+        self._ThemeManager = nil
         self._Library = nil
         self._Window = nil
         self._Tabs = nil
         self.Toggles = nil
         self.Options = nil
-
-        -- Terminate the script
-        shared._InkGameScriptState.Cleanup()
     end)
+
+    self._ThemeManager:ApplyTheme("Tokyo Night")
     
     return self
 end
 
 function UIManager:_LoadLibrary()
     self._Library = loadstring(game:HttpGet('https://raw.githubusercontent.com/DarkClpher/RBX-Scripts/refs/heads/main/UI-Libraries/LinoriaUI.luau'))()
+
+    self._ThemeManager = loadstring(game:HttpGet('https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/addons/ThemeManager.lua'))()
+    self._ThemeManager:SetLibrary(self._Library)
+
     if not self._Library then
         error("Failed to load LinoriaLib")
     end
@@ -349,7 +466,7 @@ function UIManager:_CreateWindow()
         AutoShow = true,
         TabPadding = 8,
         MenuFadeTime = 0.2,
-        Size = UDim2.new(0, 500, 0, 400)
+        Size = UDim2.new(0, 525, 0, 400)
     })
 end
 
@@ -368,46 +485,61 @@ function UIManager:_SetupTabs()
 end
 
 function UIManager:_SetupMainCheatsTab()
-    local GameCheats = self._Tabs.Main:AddLeftGroupbox("Game Features")
+    local RoundCheatsGroup = self._Tabs.Main:AddLeftGroupbox("Round Cheats")
     
     -- Red Light Green Light God Mode
-    GameCheats:AddToggle("RedLightGodMode", {
+    RoundCheatsGroup:AddToggle("RedLightGodMode", {
         Text = "Red Light God Mode",
         Default = false,
         Tooltip = "Prevents you from being eliminated during Red Light Green Light"
     })
     
-    -- Glass Bridge ESP
-    GameCheats:AddToggle("GlassBridgeESP", {
-        Text = "Glass Bridge ESP",
-        Default = false,
-        Tooltip = "Shows which glass panels are safe to step on"
-    })
-    
     -- Tug of War Auto Pull
-    GameCheats:AddToggle("TugOfWarAuto", {
+    RoundCheatsGroup:AddToggle("TugOfWarAuto", {
         Text = "Tug of War Auto Pull",
         Default = false,
         Tooltip = "Automatically pulls during Tug of War game"
     })
     
     -- Dalgona Auto Complete
-    GameCheats:AddToggle("DalgonaAuto", {
+    RoundCheatsGroup:AddToggle("DalgonaAuto", {
         Text = "Dalgona Auto Complete",
         Default = false,
         Tooltip = "Automatically completes the Dalgona cookie challenge"
     })
 
     -- Mingle power hold minigame/QTE Auto solver
-    GameCheats:AddToggle("MinglePowerHoldAuto", {
+    RoundCheatsGroup:AddToggle("MinglePowerHoldAuto", {
         Text = "Mingle Auto Minigame Solver",
         Default = false,
         Tooltip = "Automatically completes the Mingle power hold minigame/QTE"
     })
     
-    -- Add divider and status
-    GameCheats:AddDivider()
-    GameCheats:AddLabel("Status: Ready")
+    -- ESP/Visuals
+    local VisualsGroup = self._Tabs.Main:AddRightGroupbox("Visuals")
+
+    VisualsGroup:AddLabel("Hide And Seek")
+
+    VisualsGroup:AddToggle("HiderESP", {
+        Text = "Hider ESP",
+        Default = false,
+        Tooltip = "Visually shows where the hiders are located and their status"
+    })
+
+    VisualsGroup:AddToggle("HunterESP", {
+        Text = "Hunter ESP",
+        Default = false,
+        Tooltip = "Visually shows where the hunters are located and their status"
+    })
+
+    VisualsGroup:AddDivider()
+    VisualsGroup:AddLabel("Glass Bridge")
+    
+    VisualsGroup:AddToggle("GlassBridgeESP", {
+        Text = "Glass Bridge ESP",
+        Default = false,
+        Tooltip = "Visually shows which glass panels are safe to step on"
+    })
 end
 
 function UIManager:_SetupPlayerTab()
@@ -492,6 +624,7 @@ function UIManager:_SetupPlayerTab()
         end))
         
         CharacterMaid:GiveTask(function()
+            table.clear(CachedBaseParts)
             for BasePart, _ in NoclippedBaseParts do
                 NoclippedBaseParts[BasePart] = nil
                 BasePart.CanCollide = true
@@ -595,7 +728,8 @@ local Features = {
     ["Dalgona"] = Dalgona,
     ["TugOfWar"] = TugOfWar,
     ["GlassBridge"] = GlassBridge,
-    ["Mingle"] = Mingle
+    ["Mingle"] = Mingle,
+    ["HideAndSeek"] = HideAndSeek
 }
 
 local function CleanupCurrentFeature()
