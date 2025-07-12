@@ -7,3 +7,4 @@ realm = "shared"
 [dependencies]
 goodsignal = "stravant/goodsignal@0.3.0"
 maid = "coiorevent8/maid@3.4.0"
+
